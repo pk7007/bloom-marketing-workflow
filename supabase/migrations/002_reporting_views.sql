@@ -1,0 +1,10 @@
+-- Small-team aggregate storage preserves atomic cross-record workflow transitions.
+-- Security-invoker views expose record collections without bypassing state RLS.
+create view public.content_items with(security_invoker=true) as select workspace_id,x->>'id' as id,x->>'title' as title,x->>'platform' as platform,x->>'status' as status,x->>'approvedVersion' as approved_version,x as record from public.workspace_state cross join lateral jsonb_array_elements(document->'contents') x;
+create view public.content_versions with(security_invoker=true) as select workspace_id,c->>'id' as content_id,v->>'id' as id,v as record from public.workspace_state cross join lateral jsonb_array_elements(document->'contents') c cross join lateral jsonb_array_elements(c->'versions') v;
+create view public.approvals with(security_invoker=true) as select workspace_id,x->>'id' as id,x->>'contentId' as content_id,x->>'versionId' as version_id,x as record from public.workspace_state cross join lateral jsonb_array_elements(document->'approvals') x;
+create view public.publications with(security_invoker=true) as select workspace_id,x->>'id' as id,x->>'status' as status,(x->>'scheduledAt')::timestamptz as scheduled_at,x as record from public.workspace_state cross join lateral jsonb_array_elements(document->'publications') x;
+create view public.metric_snapshots with(security_invoker=true) as select workspace_id,x->>'publicationId' as publication_id,x->>'name' as metric_name,x as record from public.workspace_state cross join lateral jsonb_array_elements(document->'metrics') x;
+create view public.ai_usage with(security_invoker=true) as select workspace_id,x->>'id' as id,x as record from public.workspace_state cross join lateral jsonb_array_elements(document->'usage') x;
+create view public.audit_events with(security_invoker=true) as select workspace_id,x->>'id' as id,x as record from public.workspace_state cross join lateral jsonb_array_elements(document->'audit') x;
+grant select on public.content_items,public.content_versions,public.approvals,public.publications,public.metric_snapshots,public.ai_usage,public.audit_events to authenticated;
